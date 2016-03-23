@@ -1,0 +1,55 @@
+version: '2'
+
+services:
+  openhab:
+    build: openhab/.
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+      - "5555:5555"
+      - "9001:9001"
+    links:
+      - "knxd"
+      - "influxdb"
+    volumes:
+      - <OPENHAB CONFIG DIR>:/opt/openhab/configurations
+      - <OPENHAB IMAGES DIR>:/opt/openhab/webapps/images
+    restart: always
+
+  knxd:
+    build: knxd/.
+    ports:
+      - "3671:3671/udp"
+      - "6720:6720"
+      - "4720:4720"
+    command: knxd -t 65535 -D -T -R -S -i --GroupCache -b ipt:<KNX GATEWAY IP>
+    restart: always
+
+  influxdb:
+    image: tutum/influxdb:latest
+    ports:
+      - "8083:8083"
+      - "8086:8086"
+    volumes:
+      - <INFLUXDB DATA DIR>:/data
+    environment:
+      - PRE_CREATE_DB=openhab
+      - ADMIN_USER=openhab
+      - INFLUXDB_INIT_PWD=openhab
+    restart: always
+
+  grafana:
+      image: qapps/grafana-docker:master
+      ports:
+        - "3000:3000"
+      links:
+        - "influxdb"
+      environment:
+        - DS_NAME=InfluxDB
+        - DS_TYPE=influxdb
+        - DS_ACCESS=proxy
+        - DS_URL=http://influxdb:8086
+        - DS_PASS=openhab
+        - DS_USER=openhab
+        - DS_DB=openhab
+      restart: always
